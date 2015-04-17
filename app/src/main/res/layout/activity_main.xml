@@ -44,44 +44,4 @@
         android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true"/>
 
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="USB enum"
-        android:id="@+id/button4"
-        android:onClick="doEnum"
-        android:layout_below="@+id/button3"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentStart="true"/>
-
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="USB perm"
-        android:id="@+id/button5"
-        android:onClick="doPerm"
-        android:layout_below="@+id/button4"
-        android:layout_alignRight="@+id/button2"
-        android:layout_alignEnd="@+id/button2"/>
-
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="USB conn"
-        android:id="@+id/button6"
-        android:onClick="doConn"
-        android:layout_below="@+id/button5"
-        android:layout_alignRight="@+id/button5"
-        android:layout_alignEnd="@+id/button5"/>
-
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="SDCard"
-        android:id="@+id/button7"
-        android:onClick="OnSDCard"
-        android:layout_below="@+id/button6"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentStart="true"/>
-
 </RelativeLayout>

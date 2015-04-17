@@ -19,36 +19,63 @@ public class InstallThread implements Callable<Boolean> {
     private static final String TAG = "InstallThread";
     private static final int PARTICIPANTS = 2;
     private Context context;
-    private String file;
-    private BroadcastReceiver installReceiver;
+    private String file_pkg;
+    private int type;
+    private BroadcastReceiver receiver;
     private CyclicBarrier barrier;
+    private Boolean result;
 
-    public InstallThread(Context context, String file) {
+    public InstallThread(Context context, String file_pkg, int type) {
         this.context = context;
-        this.file = file;
+        this.file_pkg = file_pkg;
+        this.type = type;
         barrier = new CyclicBarrier(PARTICIPANTS);
 
         IntentFilter filter = new IntentFilter();
-        filter.addAction(Intent.ACTION_PACKAGE_ADDED);
-//        filter.addAction(Intent.ACTION_PACKAGE_DATA_CLEARED);
-//        filter.addAction(Intent.ACTION_PACKAGE_REMOVED);
-        filter.addAction(Intent.ACTION_PACKAGE_REPLACED);
+        switch (type) {
+            case AppOpHideMgr.INSTALL:
+                filter.addAction(Intent.ACTION_PACKAGE_ADDED);
+                filter.addAction(Intent.ACTION_PACKAGE_REPLACED);
+                break;
+            case AppOpHideMgr.UNINSTALL:
+                filter.addAction(Intent.ACTION_PACKAGE_REMOVED);
+                break;
+            case AppOpHideMgr.CLEAR:
+                filter.addAction(Intent.ACTION_PACKAGE_DATA_CLEARED);
+                break;
+        }
+
         filter.addDataScheme("package");
-        installReceiver = new InstallPackageReceiver();
-        context.registerReceiver(installReceiver, filter);
+        receiver = new InstallPackageReceiver();
+        context.registerReceiver(receiver, filter);
     }
 
     @Override
     public Boolean call() throws Exception {
-        Intent install_hide_intent = new Intent("android.intent.action.VIEW_HIDE");
-        install_hide_intent.setDataAndType(Uri.parse(file),
-                "application/vnd.android.package-archive");
-        context.startActivity(install_hide_intent);
+        switch (type) {
+            case AppOpHideMgr.INSTALL:
+                Intent install_hide_intent = new Intent("android.intent.action.VIEW_HIDE");
+                install_hide_intent.setDataAndType(Uri.parse("file://" + file_pkg), "application/vnd.android.package-archive");
+                context.startActivity(install_hide_intent);
+                Log.d(TAG, "start install_hide_intent");
+                break;
+            case AppOpHideMgr.UNINSTALL:
+                Intent uninstall_hide_intent = new Intent("android.intent.action.DELETE_HIDE");
+                uninstall_hide_intent.setData(Uri.parse("package:" + file_pkg));
+                context.startActivity(uninstall_hide_intent);
+                Log.d(TAG, "start uninstall_hide_intent");
+                break;
+            case AppOpHideMgr.CLEAR:
+                Intent clear_hide_intent = new Intent("android.intent.action.CLEAR_HIDE");
+                clear_hide_intent.setData(Uri.parse("package:" + file_pkg));
+                context.startActivity(clear_hide_intent);
+                Log.d(TAG, "start clear_hide_intent");
+                break;
+        }
 
-        Log.d(TAG, "start install_hide_intent");
         barrier.await();
         Log.d(TAG, "exit");
-        return true;
+        return result;
     }
 
 
@@ -59,10 +86,26 @@ public class InstallThread implements Callable<Boolean> {
             if (Intent.ACTION_PACKAGE_ADDED.equals(action) || Intent.ACTION_PACKAGE_REPLACED.equals(action)) {
                 String packageName = intent.getData().getEncodedSchemeSpecificPart();
                 Log.d(TAG, packageName);
-                context.unregisterReceiver(installReceiver);
+                result = true;
+                context.unregisterReceiver(receiver);
                 try {
                     barrier.await();
                     Log.d(TAG, "InstallPackageReceiver exit");
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (BrokenBarrierException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            if (Intent.ACTION_PACKAGE_REMOVED.equals(action) || Intent.ACTION_PACKAGE_DATA_CLEARED.equals(action)) {
+                String packageName = intent.getData().getEncodedSchemeSpecificPart();
+                Log.d(TAG, packageName);
+                result = file_pkg.equals(packageName);
+                context.unregisterReceiver(receiver);
+                try {
+                    barrier.await();
+                    Log.d(TAG, "OP:" + type + " Receiver exit");
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 } catch (BrokenBarrierException e) {
