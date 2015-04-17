@@ -23,6 +23,7 @@ public class AppOpHideMgr {
 
         ExecutorService executor = Executors.newFixedThreadPool(1);
         Future<Boolean> future = executor.submit(new InstallThread(context, file, INSTALL));
+        //TODO
         try {
             result = future.get(30, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
@@ -42,7 +43,7 @@ public class AppOpHideMgr {
         ExecutorService executor = Executors.newFixedThreadPool(1);
         Future<Boolean> future = executor.submit(new InstallThread(context, pkg, UNINSTALL));
         try {
-            result = future.get(3, TimeUnit.SECONDS);
+            result = future.get(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             e.printStackTrace();
         } catch (ExecutionException e) {
@@ -60,7 +61,7 @@ public class AppOpHideMgr {
         ExecutorService executor = Executors.newFixedThreadPool(1);
         Future<Boolean> future = executor.submit(new InstallThread(context, pkg, CLEAR));
         try {
-            result = future.get(3, TimeUnit.SECONDS);
+            result = future.get(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             e.printStackTrace();
         } catch (ExecutionException e) {

@@ -22,26 +22,35 @@ public class InstallThread implements Callable<Boolean> {
     private String file_pkg;
     private int type;
     private BroadcastReceiver receiver;
-    private CyclicBarrier barrier;
+    private CyclicBarrier barrierInstall;
+    private CyclicBarrier barrierUnInstall;
+    private CyclicBarrier barrierClear;
     private Boolean result;
 
     public InstallThread(Context context, String file_pkg, int type) {
         this.context = context;
         this.file_pkg = file_pkg;
         this.type = type;
-        barrier = new CyclicBarrier(PARTICIPANTS);
 
         IntentFilter filter = new IntentFilter();
+        //TODO
+//        filter.addAction(Intent.ACTION_PACKAGE_ADDED);
+//        filter.addAction(Intent.ACTION_PACKAGE_REPLACED);
+//        filter.addAction(Intent.ACTION_PACKAGE_REMOVED);
+//        filter.addAction(Intent.ACTION_PACKAGE_DATA_CLEARED);
         switch (type) {
             case AppOpHideMgr.INSTALL:
                 filter.addAction(Intent.ACTION_PACKAGE_ADDED);
                 filter.addAction(Intent.ACTION_PACKAGE_REPLACED);
+                barrierInstall = new CyclicBarrier(PARTICIPANTS);
                 break;
             case AppOpHideMgr.UNINSTALL:
                 filter.addAction(Intent.ACTION_PACKAGE_REMOVED);
+                barrierUnInstall = new CyclicBarrier(PARTICIPANTS);
                 break;
             case AppOpHideMgr.CLEAR:
                 filter.addAction(Intent.ACTION_PACKAGE_DATA_CLEARED);
+                barrierClear = new CyclicBarrier(PARTICIPANTS);
                 break;
         }
 
@@ -58,59 +67,74 @@ public class InstallThread implements Callable<Boolean> {
                 install_hide_intent.setDataAndType(Uri.parse("file://" + file_pkg), "application/vnd.android.package-archive");
                 context.startActivity(install_hide_intent);
                 Log.d(TAG, "start install_hide_intent");
+                barrierInstall.await();
                 break;
             case AppOpHideMgr.UNINSTALL:
                 Intent uninstall_hide_intent = new Intent("android.intent.action.DELETE_HIDE");
                 uninstall_hide_intent.setData(Uri.parse("package:" + file_pkg));
                 context.startActivity(uninstall_hide_intent);
                 Log.d(TAG, "start uninstall_hide_intent");
+                barrierUnInstall.await();
                 break;
             case AppOpHideMgr.CLEAR:
                 Intent clear_hide_intent = new Intent("android.intent.action.CLEAR_HIDE");
                 clear_hide_intent.setData(Uri.parse("package:" + file_pkg));
                 context.startActivity(clear_hide_intent);
                 Log.d(TAG, "start clear_hide_intent");
+                barrierClear.await();
                 break;
         }
 
-        barrier.await();
-        Log.d(TAG, "exit");
+        Log.d(TAG, "call exit");
+        context.unregisterReceiver(receiver);
         return result;
     }
-
 
     private class InstallPackageReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(final Context context, final Intent intent) {
             String action = intent.getAction();
+            Log.d(TAG, "onReceive " + action);
             if (Intent.ACTION_PACKAGE_ADDED.equals(action) || Intent.ACTION_PACKAGE_REPLACED.equals(action)) {
                 String packageName = intent.getData().getEncodedSchemeSpecificPart();
                 Log.d(TAG, packageName);
                 result = true;
-                context.unregisterReceiver(receiver);
                 try {
-                    barrier.await();
-                    Log.d(TAG, "InstallPackageReceiver exit");
+                    barrierInstall.await();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 } catch (BrokenBarrierException e) {
                     e.printStackTrace();
                 }
+                Log.d(TAG, "InstallPackageReceiver exit");
             }
 
-            if (Intent.ACTION_PACKAGE_REMOVED.equals(action) || Intent.ACTION_PACKAGE_DATA_CLEARED.equals(action)) {
+            if (Intent.ACTION_PACKAGE_REMOVED.equals(action)) {
                 String packageName = intent.getData().getEncodedSchemeSpecificPart();
                 Log.d(TAG, packageName);
                 result = file_pkg.equals(packageName);
-                context.unregisterReceiver(receiver);
                 try {
-                    barrier.await();
-                    Log.d(TAG, "OP:" + type + " Receiver exit");
+                    barrierUnInstall.await();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 } catch (BrokenBarrierException e) {
                     e.printStackTrace();
                 }
+                Log.d(TAG, "UnInstallPackageReceiver exit");
+            }
+
+            if (Intent.ACTION_PACKAGE_DATA_CLEARED.equals(action)) {
+                String packageName = intent.getData().getEncodedSchemeSpecificPart();
+                Log.d(TAG, packageName);
+                result = file_pkg.equals(packageName);
+                try {
+                    barrierClear.await();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (BrokenBarrierException e) {
+                    e.printStackTrace();
+                }
+                Log.d(TAG, "ClearPackageReceiver exit");
             }
         }
     }
